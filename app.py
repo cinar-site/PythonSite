@@ -3,16 +3,15 @@ import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 import smtplib
 from email.mime.text import MIMEText
-import os
-from dotenv import load_dotenv
-
-# -----------------------------
-# ENV YÜKLE
-# -----------------------------
-load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_123"
+
+# -----------------------------
+# MAIL BİLGİLERİ (direkt)
+# -----------------------------
+SENDER_EMAIL = "cinareymenozcelik733@gmail.com"
+SENDER_PASSWORD = "khlj klrg typq epqh"
 
 # -----------------------------
 # DATABASE OLUŞTUR
@@ -34,22 +33,19 @@ def init_db():
 init_db()
 
 # -----------------------------
-# EMAIL GÖNDERME FONKSİYONU
+# MAIL GÖNDERME
 # -----------------------------
 def send_email(to_email, subject, message):
-    sender_email = os.getenv("EMAIL_USER")
-    sender_password = os.getenv("EMAIL_PASS")
-    
     msg = MIMEText(message)
     msg['Subject'] = subject
-    msg['From'] = sender_email
+    msg['From'] = SENDER_EMAIL
     msg['To'] = to_email
 
     try:
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
-        server.login(sender_email, sender_password)
-        server.sendmail(sender_email, to_email, msg.as_string())
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        server.sendmail(SENDER_EMAIL, to_email, msg.as_string())
         server.quit()
         print(f"Email gönderildi: {to_email}")
     except Exception as e:
@@ -58,7 +54,6 @@ def send_email(to_email, subject, message):
 # -----------------------------
 # REGISTER
 # -----------------------------
-@app.route("/", methods=["GET", "POST"])
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if "user_id" in session:
@@ -74,27 +69,34 @@ def register():
             flash("Şifreler eşleşmiyor!")
             return redirect(url_for("register"))
 
-        conn = sqlite3.connect("users.db")
-        c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE email=?", (email,))
-        if c.fetchone():
+        # --- DB işlemleri ---
+        try:
+            conn = sqlite3.connect("users.db")
+            c = conn.cursor()
+            c.execute("SELECT * FROM users WHERE email=?", (email,))
+            if c.fetchone():
+                flash("Bu email zaten kayıtlı!")
+                conn.close()
+                return redirect(url_for("register"))
+
+            hashed_password = generate_password_hash(password)
+            c.execute("INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
+                      (name, email, hashed_password))
+            conn.commit()
             conn.close()
-            flash("Bu email zaten kayıtlı!")
+        except Exception as e:
+            print("DB hatası:", e)
+            flash("Kayıt sırasında bir hata oluştu!")
             return redirect(url_for("register"))
 
-        hashed_password = generate_password_hash(password)
-        c.execute("INSERT INTO users (name, email, password) VALUES (?, ?, ?)", (name, email, hashed_password))
-        conn.commit()
-        conn.close()
+        # --- Mail gönderimi ---
+        try:
+            send_email(email, "Hoşgeldiniz!", f"Merhaba {name}, kayıt işleminiz başarılı!")
+            flash("Kayıt başarılı! E-posta gönderildi.")
+        except Exception as e:
+            print("Mail hatası:", e)
+            flash("Kayıt başarılı! Ama e-posta gönderilemedi.")
 
-        # Kayıt başarılı, e-posta gönder
-        send_email(
-            email,
-            "Hoşgeldiniz!",
-            f"Merhaba {name}, kayıt işleminiz başarılı!"
-        )
-
-        flash("Kayıt başarılı! E-posta gönderildi.")
         return redirect(url_for("login"))
 
     return render_template("register.html")
