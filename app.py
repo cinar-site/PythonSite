@@ -8,7 +8,14 @@ app = Flask(__name__)
 app.secret_key = "super_secret_key_123"
 
 # -----------------------------
-# MAIL BİLGİLERİ (direkt)
+# ANA SAYFA (404 HATASINI DÜZELTİR)
+# -----------------------------
+@app.route("/")
+def home():
+    return redirect(url_for("login"))
+
+# -----------------------------
+# MAIL BİLGİLERİ
 # -----------------------------
 SENDER_EMAIL = "cinareymenozcelik733@gmail.com"
 SENDER_PASSWORD = "khlj klrg typq epqh"
@@ -47,7 +54,7 @@ def send_email(to_email, subject, message):
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.sendmail(SENDER_EMAIL, to_email, msg.as_string())
         server.quit()
-        print(f"Email gönderildi: {to_email}")
+        print("Email gönderildi")
     except Exception as e:
         print("Email gönderilemedi:", e)
 
@@ -56,10 +63,12 @@ def send_email(to_email, subject, message):
 # -----------------------------
 @app.route("/register", methods=["GET", "POST"])
 def register():
+
     if "user_id" in session:
         return redirect(url_for("dashboard"))
 
     if request.method == "POST":
+
         name = request.form["name"]
         email = request.form["email"]
         password = request.form["password"]
@@ -69,34 +78,28 @@ def register():
             flash("Şifreler eşleşmiyor!")
             return redirect(url_for("register"))
 
-        # --- DB işlemleri ---
-        try:
-            conn = sqlite3.connect("users.db")
-            c = conn.cursor()
-            c.execute("SELECT * FROM users WHERE email=?", (email,))
-            if c.fetchone():
-                flash("Bu email zaten kayıtlı!")
-                conn.close()
-                return redirect(url_for("register"))
+        conn = sqlite3.connect("users.db")
+        c = conn.cursor()
 
-            hashed_password = generate_password_hash(password)
-            c.execute("INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
-                      (name, email, hashed_password))
-            conn.commit()
+        c.execute("SELECT * FROM users WHERE email=?", (email,))
+        if c.fetchone():
+            flash("Bu email zaten kayıtlı!")
             conn.close()
-        except Exception as e:
-            print("DB hatası:", e)
-            flash("Kayıt sırasında bir hata oluştu!")
             return redirect(url_for("register"))
 
-        # --- Mail gönderimi ---
-        try:
-            send_email(email, "Hoşgeldiniz!", f"Merhaba {name}, kayıt işleminiz başarılı!")
-            flash("Kayıt başarılı! E-posta gönderildi.")
-        except Exception as e:
-            print("Mail hatası:", e)
-            flash("Kayıt başarılı! Ama e-posta gönderilemedi.")
+        hashed_password = generate_password_hash(password)
 
+        c.execute(
+            "INSERT INTO users (name,email,password) VALUES (?,?,?)",
+            (name,email,hashed_password)
+        )
+
+        conn.commit()
+        conn.close()
+
+        send_email(email,"Hoşgeldiniz!",f"Merhaba {name}, kayıt başarılı!")
+
+        flash("Kayıt başarılı!")
         return redirect(url_for("login"))
 
     return render_template("register.html")
@@ -104,25 +107,32 @@ def register():
 # -----------------------------
 # LOGIN
 # -----------------------------
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login", methods=["GET","POST"])
 def login():
+
     if request.method == "POST":
+
         email = request.form["email"]
         password = request.form["password"]
 
         conn = sqlite3.connect("users.db")
         c = conn.cursor()
+
         c.execute("SELECT * FROM users WHERE email=?", (email,))
         user = c.fetchone()
+
         conn.close()
 
         if user and check_password_hash(user[3], password):
+
             session["user_id"] = user[0]
             session["user_name"] = user[1]
-            flash(f"Hoşgeldiniz, {user[1]}!")
+
+            flash("Giriş başarılı!")
             return redirect(url_for("dashboard"))
+
         else:
-            flash("Email veya şifre hatalı!")
+            flash("Email veya şifre yanlış!")
             return redirect(url_for("login"))
 
     return render_template("login.html")
@@ -132,9 +142,11 @@ def login():
 # -----------------------------
 @app.route("/dashboard")
 def dashboard():
+
     if "user_id" not in session:
-        flash("Önce giriş yapmalısınız!")
+        flash("Önce giriş yap!")
         return redirect(url_for("login"))
+
     return render_template("dashboard.html", name=session["user_name"])
 
 # -----------------------------
@@ -142,8 +154,10 @@ def dashboard():
 # -----------------------------
 @app.route("/logout")
 def logout():
+
     session.clear()
     flash("Çıkış yapıldı!")
+
     return redirect(url_for("login"))
 
 # -----------------------------
