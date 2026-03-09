@@ -15,7 +15,6 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-
 def init_db():
     conn = get_db()
     c = conn.cursor()
@@ -32,15 +31,13 @@ def init_db():
     conn.commit()
     conn.close()
 
-
 init_db()
 
 # -----------------------------
 # MAIL AYARLARI
 # -----------------------------
 SENDER_EMAIL = "cinareymenozcelik733@gmail.com"
-SENDER_PASSWORD = "khlj klrg typq epqh"
-
+SENDER_PASSWORD = "khlj klrg typq epqh"  # Gmail “App Password” olmalı
 
 def send_email(to_email, subject, message):
     try:
@@ -58,8 +55,8 @@ def send_email(to_email, subject, message):
         print("Mail gönderildi")
 
     except Exception as e:
-        print("Mail hatası:", e)
-
+        print("Mail gönderilemedi, hata:", e)
+        # Hata oluşsa bile siteyi kırmaz, sadece terminale yazılır
 
 # -----------------------------
 # ANA SAYFA
@@ -68,15 +65,12 @@ def send_email(to_email, subject, message):
 def home():
     return redirect(url_for("login"))
 
-
 # -----------------------------
 # REGISTER
 # -----------------------------
 @app.route("/register", methods=["GET", "POST"])
 def register():
-
     if request.method == "POST":
-
         name = request.form["name"]
         email = request.form["email"]
         password = request.form["password"]
@@ -88,7 +82,6 @@ def register():
 
         conn = get_db()
         c = conn.cursor()
-
         c.execute("SELECT * FROM users WHERE email=?", (email,))
         user = c.fetchone()
 
@@ -98,85 +91,70 @@ def register():
             return redirect(url_for("register"))
 
         hashed_password = generate_password_hash(password)
-
-        c.execute(
-            "INSERT INTO users (name,email,password) VALUES (?,?,?)",
-            (name, email, hashed_password)
-        )
-
+        c.execute("INSERT INTO users (name,email,password) VALUES (?,?,?)",
+                  (name, email, hashed_password))
         conn.commit()
         conn.close()
 
-        send_email(email, "Hoşgeldiniz!", f"Merhaba {name}, kayıt başarılı!")
+        # Mail gönderme artık güvenli
+        try:
+            send_email(email, "Hoşgeldiniz!", f"Merhaba {name}, kayıt başarılı!")
+        except:
+            pass  # Hata olsa bile site çalışmaya devam eder
 
         flash("Kayıt başarılı!")
         return redirect(url_for("login"))
 
     return render_template("register.html")
 
-
 # -----------------------------
 # LOGIN
 # -----------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
-
     if request.method == "POST":
-
         email = request.form["email"]
         password = request.form["password"]
 
         conn = get_db()
         c = conn.cursor()
-
         c.execute("SELECT * FROM users WHERE email=?", (email,))
         user = c.fetchone()
-
         conn.close()
 
         if user and check_password_hash(user["password"], password):
-
             session["user_id"] = user["id"]
             session["user_name"] = user["name"]
-
             flash("Giriş başarılı!")
             return redirect(url_for("dashboard"))
-
         else:
             flash("Email veya şifre yanlış!")
             return redirect(url_for("login"))
 
     return render_template("login.html")
 
-
 # -----------------------------
 # DASHBOARD
 # -----------------------------
 @app.route("/dashboard")
 def dashboard():
-
     if "user_id" not in session:
         flash("Önce giriş yap!")
         return redirect(url_for("login"))
 
     return render_template("dashboard.html", name=session["user_name"])
 
-
 # -----------------------------
 # LOGOUT
 # -----------------------------
 @app.route("/logout")
 def logout():
-
     session.clear()
     flash("Çıkış yapıldı!")
-
     return redirect(url_for("login"))
-
 
 # -----------------------------
 # RUN
 # -----------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
-
+    app.run(host="0.0.0.0", port=5000, debug=True)
