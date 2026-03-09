@@ -66,7 +66,7 @@ def send_email(to_email, subject, message):
 # -----------------------------
 @app.route("/")
 def home():
-    return render_template("index.html")
+    return redirect(url_for("login"))
 
 
 # -----------------------------
@@ -179,3 +179,4 @@ def logout():
 # -----------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
